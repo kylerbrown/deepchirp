@@ -34,31 +34,75 @@ def windowed_sample_iterator(spa, data, window_len, amplitude_norm=1):
     Boundaries are zero-padded.
 
     yields:
-        x_sample: a feature vector
+        x_sample: a feature vector dimension: time X frequency
         t: the time of the center sample
     '''
     n_freqs = len(spa._freqs)
     power_spec = spa.signal(data).power()
     spec_sr = 1/ ((spa._NFFT - spa._noverlap) / spa._rate)
     # for an x_sample, the first dimension is frequency, second is time
-    x_sample = np.zeros((n_freqs, window_len * 2 + 1, 1), dtype='float32')
+    x_sample = np.zeros((window_len * 2 + 1, n_freqs, 1), dtype='float32')
     i = 0
     for pxx, t in power_spec:
         # shift everything back one time window
-        x_sample = np.roll(x_sample, -1, 1)
+        x_sample = np.roll(x_sample, -1, 0)
         # add new power spectra to last time step
-        x_sample[:, -1, 0] = np.sqrt(pxx) / amplitude_norm
+        x_sample[-1, :, 0] = np.sqrt(pxx) / amplitude_norm
         if i > window_len:
             yield x_sample, t - (window_len + 1) / spec_sr
         i += 1
 
     for _ in range(window_len + 1):
-        x_sample = np.roll(x_sample, -1, 1)
+        x_sample = np.roll(x_sample, -1, 0)
         # keep yielding, adding a pad
-        x_sample[:, -1, 0] = 0
+        x_sample[-1, :, 0] = 0
         t += 1 / spec_sr
         yield x_sample, t - (window_len + 1) / spec_sr
 
+#def time_dist_generator(spa=spa,
+#                   data=data,
+#                   window_len=window_len,
+#                   n_past=10,
+#                   labels=None,
+#                   encoder=None,
+#                   batch_size=32,
+#                   amplitude_norm=1):
+#    '''
+#    TODO
+#    each sample is a time series of overlapping spectrograms
+#
+#    return a sample with dimension: (batch_size, n_past, 
+#
+#    spa       : a resin.Spectra instance
+#    data      : the raw timeseries data
+#    labels    : event data with known labels
+#    encoder   : dictionary mapping labels to numbers
+#    window_len : the number power spectra in one side of the window. Full window is window_len * 2 + 1.
+#    spec_sr : spectrogram sampling rate, inverse of the spacing between spectra
+#    '''
+#    batch_features = []
+#    batch_targets = []
+#    tensor = np.zeros( (n_past, len(spa._freqs), window_len * 2 + 1), dtype='float32')
+#    for x, t in windowed_sample_iterator(spa, data, window_len, amplitude_norm):
+#        # shift everything back one time window
+#        x_sample = np.roll(x_sample, -1, 0)
+#        # add new power spectra to last time step
+#        tensor[-1, :, :, 0] = x
+#        batch_features.append(tensor.copy())
+#        if labels is not None:
+#            batch_targets.append(target_from_events(labels, encoder, t))
+#        if len(batch_features) == batch_size:
+#            if labels is not None:
+#                yield np.array(batch_features), np.array(batch_targets)
+#            else:
+#                yield np.array(batch_features)
+#            batch_features = []
+#            batch_targets = []
+#    if batch_features:
+#        if labels is not None:
+#            yield np.array(batch_features), np.array(batch_targets)
+#        else:
+#            yield np.array(batch_features)
 
 def data_generator(spa,
                    data,

@@ -43,8 +43,8 @@ encoder = p['encoder']
 class_weights = {v: p['syllable_class_weight'] for v in encoder.values()}
 class_weights[0] = 1
 print("model input dimensions: ", len(spa._freqs), n_timesteps)
-model = get_model(p['model'], len(spa._freqs), n_timesteps, n_cats=len(encoder) + 1)
 batch_size = p['batch_size']
+model = get_model(p['model'], len(spa._freqs), n_timesteps, n_cats=len(encoder) + 1)
 n_epochs = p['n_epochs']
 print(model.summary())
 

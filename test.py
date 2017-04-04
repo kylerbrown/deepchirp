@@ -45,4 +45,4 @@ y_est = np.row_stack(y_est)
 
 print("accuracy score:", accuracy_score(np.argmax(y_true, 1), np.argmax(y_est, 1)))
 print(classification_report(np.argmax(y_true, 1), np.argmax(y_est, 1)))
-np.savez(p['test_data'], y_true, y_est)
+np.savez(p['test_data'], y=y_true, yhat=y_est)
