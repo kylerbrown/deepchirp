@@ -9,6 +9,7 @@ import resin
 from preprocess import get_encoder_and_decoder, data_generator
 import numpy as np
 import yaml
+import cat2csv
 
 parameters_file = argv[1]
 
@@ -45,4 +46,17 @@ y_est = np.row_stack(y_est)
 
 print("accuracy score:", accuracy_score(np.argmax(y_true, 1), np.argmax(y_est, 1)))
 print(classification_report(np.argmax(y_true, 1), np.argmax(y_est, 1)))
-np.savez(p['test_data'], y=y_true, yhat=y_est)
+
+# save outputs
+decoder = {v: k for k, v in p['encoder'].items()}
+m = p['model']
+np.savez(m + '_y_yhat.npz', y=y_true, yhat=y_est)
+sampling_rate = 1 / (p['window_spacing'] / p['sr'])
+bark.write_sampled(m + '_y_yhat.dat',
+        np.column_stack((y_true.astype('int16') * 256,
+                        (y_est * 256).astype('int16'))),
+        sampling_rate)
+bark.write_sampled(m + '_yhat.dat',
+                        y_est,
+                        sampling_rate, decoder=decoder)
+cat2csv.main(m + '_yhat.dat', p['model'] + '_yhat.csv')

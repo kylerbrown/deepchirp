@@ -47,11 +47,10 @@ batch_size = p['batch_size']
 model = get_model(p['model'], len(spa._freqs), n_timesteps, n_cats=len(encoder) + 1)
 n_epochs = p['n_epochs']
 print(model.summary())
-
-for sampled_dset, event_dset in zip(sampled_dsets, event_dsets):
-    if len(event_dset.data) == 0:
-        continue
-    for epoch in range(n_epochs):
+for epoch in range(n_epochs):
+    for sampled_dset, event_dset in zip(sampled_dsets, event_dsets):
+        if len(event_dset.data) == 0:
+            continue
         data_gen = data_generator(spa, sampled_dset.data, window_len=window_len,
                                   labels=event_dset.data, encoder=encoder,
                                   batch_size=batch_size, amplitude_norm=p['amplitude_norm'])

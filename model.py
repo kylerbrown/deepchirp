@@ -2,6 +2,7 @@ import keras
 from keras.models import Sequential, Model
 from keras.layers import Permute, Input, Conv2D, MaxPooling2D, Flatten, Dense, Reshape, GRU
 from keras.layers.wrappers import TimeDistributed
+from keras.layers.core import Dropout
 
 def get_model(model_name, n_timesteps, n_freqs, n_cats, **kwargs):
     print(model_name)
@@ -13,12 +14,21 @@ def get_model(model_name, n_timesteps, n_freqs, n_cats, **kwargs):
         return okanoya_model(n_timesteps, n_freqs, n_cats)
     if model_name == 'dumb_r':
         return dumb_r(n_timesteps, n_freqs, n_cats)
+    if model_name == 'dumb_dense_tall':
+        return dumb_dense_tall(n_timesteps, n_freqs, n_cats)
+    if model_name == 'dumb_r_tall':
+        return dumb_r_tall(n_timesteps, n_freqs, n_cats)
     if model_name == 'dummy':
         return dummy_model(n_timesteps, n_freqs, n_cats)
     else:
         raise KeyError("could not find model {}".format(model_name))
 
 def dummy_model(n_timesteps, n_freqs, n_cats):
+    model.add(Conv2D(16,
+                     kernel_size=(4, 4),
+                     activation='relu',
+                     input_shape=(n_timesteps, n_freqs, 1)))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
     model = Sequential()
     model.add(Flatten())
     model.add(Dense(n_cats, activation='softmax'))
@@ -62,9 +72,67 @@ def okanoya2(n_freqs, n_timesteps, n_cats):
     #    batch_size=batch_input_shape))
     return model
 
+def dumb_dense_tall(n_freqs, n_timesteps, n_cats):
+    model = Sequential()
+    model.add(Conv2D(16,
+                     kernel_size=(4, 4),
+                     activation='relu',
+                     input_shape=(n_timesteps, n_freqs, 1)))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(2, 13), activation='relu'))
+    model.add(Flatten())
+    model.add(Dense(50))
+    model.add(Dropout(0.1))
+    model.add(Dense(n_cats, activation='softmax'))
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                  optimizer=keras.optimizers.Adam(),
+                  metrics=['accuracy'])
+    return model
 def dumb_r(n_freqs, n_timesteps, n_cats):
     model = Sequential()
-    # first three layers
+    model.add(Conv2D(16,
+                     kernel_size=(4, 4),
+                     activation='relu',
+                     input_shape=(n_timesteps, n_freqs, 1)))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    model.add(Reshape((4, -1)))
+    model.add(GRU(50, dropout=0.1, recurrent_dropout=0.1))
+    model.add(Dense(n_cats, activation='softmax'))
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                  optimizer=keras.optimizers.Adam(),
+                  metrics=['accuracy'])
+    return model
+
+def dumb_r_tall(n_freqs, n_timesteps, n_cats):
+    model = Sequential()
+    model.add(Conv2D(16,
+                     kernel_size=(4, 4),
+                     activation='relu',
+                     input_shape=(n_timesteps, n_freqs, 1)))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(2, 13), activation='relu'))
+    model.add(Reshape((6, -1)))
+    model.add(GRU(50, dropout=0.1, recurrent_dropout=0.1))
+    model.add(Dense(n_cats, activation='softmax'))
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                  optimizer=keras.optimizers.Adam(),
+                  metrics=['accuracy'])
+    return model
+def dumb_r(n_freqs, n_timesteps, n_cats):
+    model = Sequential()
     model.add(Conv2D(16,
                      kernel_size=(4, 4),
                      activation='relu',
