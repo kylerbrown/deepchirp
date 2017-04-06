@@ -20,18 +20,24 @@ def get_model(model_name, n_timesteps, n_freqs, n_cats, **kwargs):
         return dumb_r_tall(n_timesteps, n_freqs, n_cats)
     if model_name == 'dummy':
         return dummy_model(n_timesteps, n_freqs, n_cats)
+    if model_name == 'm800msx256':
+        return m800msx256(n_timesteps, n_freqs, n_cats)
+    if model_name == 'm800msxf512':
+        return m800msxf512(n_timesteps, n_freqs, n_cats)
     else:
         raise KeyError("could not find model {}".format(model_name))
 
 def dummy_model(n_timesteps, n_freqs, n_cats):
-    model.add(Conv2D(16,
-                     kernel_size=(4, 4),
-                     activation='relu',
-                     input_shape=(n_timesteps, n_freqs, 1)))
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
     model = Sequential()
+    model.add(Conv2D(1,
+                     kernel_size=(1, 1),
+                     activation='relu',
+                     input_shape=(n_freqs, n_timesteps, 1)))
     model.add(Flatten())
     model.add(Dense(n_cats, activation='softmax'))
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                  optimizer=keras.optimizers.Adam(),
+                  metrics=['accuracy'])
     return model
 
 def recurrent(n_cats, batch_size):
@@ -130,7 +136,47 @@ def dumb_r_tall(n_freqs, n_timesteps, n_cats):
     model.compile(loss=keras.losses.categorical_crossentropy,
                   optimizer=keras.optimizers.Adam(),
                   metrics=['accuracy'])
+
+def m800msx256(n_freqs, n_timesteps, n_cats):
+    model = Sequential()
+    model.add(Conv2D(16,
+                     kernel_size=(4, 4),
+                     activation='relu',
+                     input_shape=(n_timesteps, n_freqs, 1)))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(2, 5), activation='relu'))
+    model.add(Reshape((26, -1)))
+    model.add(GRU(10, dropout=0.1))
+    model.add(Dense(n_cats, activation='softmax'))
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                  optimizer=keras.optimizers.Adam(),
+                  metrics=['accuracy'])
     return model
+
+def m800msxf512(n_freqs, n_timesteps, n_cats):
+    model = Sequential()
+    model.add(Conv2D(16,
+                     kernel_size=(4, 4),
+                     activation='relu',
+                     input_shape=(n_timesteps, n_freqs, 1)))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(2, 13), activation='relu'))
+    model.add(Reshape((26, -1)))
+    model.add(GRU(50, dropout=0.2, recurrent_dropout=0.2))
+    model.add(Dense(n_cats, activation='softmax'))
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                  optimizer=keras.optimizers.Adam(),
+                  metrics=['accuracy'])
+    return model
+
 def dumb_r(n_freqs, n_timesteps, n_cats):
     model = Sequential()
     model.add(Conv2D(16,

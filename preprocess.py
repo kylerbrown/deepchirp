@@ -1,4 +1,5 @@
 import numpy as np
+from keras.utils import to_categorical
 
 
 def get_encoder_and_decoder(labels):
@@ -6,9 +7,22 @@ def get_encoder_and_decoder(labels):
     decoder = {v: k for k, v in encoder.items()}
     return encoder, decoder
 
+def all_targets_from_events(events_df, n_targets, fft_interval, encoder, sr):
+    labels = events_df.to_dict('records')
+    t = np.arange(0, n_targets * fft_interval, fft_interval)
+    # format target data from events
+    targets = np.zeros_like(t)
+    for syl in labels:
+        name, start, stop = syl['name'], syl['start'], syl['stop']
+        start_samp = int((start * sr) / fft_interval)
+        stop_samp = int((stop * sr) / fft_interval)
+        if name in encoder:
+            targets[start_samp: stop_samp] = encoder[name]
+    return to_categorical(targets, num_classes=len(encoder)+1)
 
 def target_from_events(labels, encoder, t):
     '''
+    NOTE: SLOW
     labels   : a pandas dataframe containing the columns 'start', 'stop' and 'name'
     encoder   : a dictionary mapping labels to numbers
     returns a single sample target for a single time t '''
@@ -66,7 +80,8 @@ def data_generator(spa,
                    labels=None,
                    encoder=None,
                    batch_size=32,
-                   amplitude_norm=1):
+                   amplitude_norm=1,
+                   loop=False):
     '''
     spa       : a resin.Spectra instance
     data      : the raw timeseries data
@@ -75,21 +90,29 @@ def data_generator(spa,
     window_len : the number power spectra in one side of the window. Full window is window_len * 2 + 1.
     spec_sr : spectrogram sampling rate, inverse of the spacing between spectra
     '''
-    batch_features = []
-    batch_targets = []
-    for x, t in windowed_sample_iterator(spa, data, window_len, amplitude_norm):
-        batch_features.append(x)
+    should_loop = True
+    while should_loop:
+        batch_features = []
         if labels is not None:
-            batch_targets.append(target_from_events(labels, encoder, t))
-        if len(batch_features) == batch_size:
+            fft_interval = spa._NFFT - spa._noverlap
+            n_targets = np.ceil(len(data) / fft_interval)
+            targets = all_targets_from_events(labels, n_targets, fft_interval, encoder, spa._rate)
+        for i, (x, t) in enumerate(windowed_sample_iterator(spa, data, window_len, amplitude_norm)):
+            batch_features.append(x)
+            if len(batch_features) == batch_size:
+                if labels is not None:
+                    yield np.array(batch_features), targets[i - batch_size + 1: i + 1]
+                else:
+                    yield np.array(batch_features)
+                batch_features = []
+        # send a final, partially full batch
+        if batch_features:
             if labels is not None:
-                yield np.array(batch_features), np.array(batch_targets)
+                yield np.array(batch_features), targets[-len(batch_features):]
             else:
                 yield np.array(batch_features)
-            batch_features = []
-            batch_targets = []
-    if batch_features:
-        if labels is not None:
-            yield np.array(batch_features), np.array(batch_targets)
+        if loop:
+            print("warning, final batch sent, looping...")
+            should_loop = True
         else:
-            yield np.array(batch_features)
+            should_loop = False

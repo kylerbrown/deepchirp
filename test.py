@@ -2,61 +2,84 @@ from sklearn.metrics import accuracy_score, classification_report
 import keras
 from sys import stdout, argv
 from glob import glob
-from os.path import splitext
+from os.path import join, splitext
 import pandas as pd
 import bark
 import resin
-from preprocess import get_encoder_and_decoder, data_generator
+from preprocess import all_targets_from_events, data_generator
 import numpy as np
 import yaml
 import cat2csv
+from train import read_files, create_spectra
 
-parameters_file = argv[1]
+def load_model(params):
+    basename = join(params['model_dir'], params['model'])
+    modelfname = '{}_{}_{}.h5'.format(basename, params['model_ver'],
+                                      params['bird'])
+    print(modelfname)
+    return keras.models.load_model(modelfname)
 
-p = yaml.safe_load(open(parameters_file, 'r'))
-noverlap=p['NFFT']-p['window_spacing']
-n_timesteps = p['window_len'] * 2 + 1
-spa = resin.ISpectra(rate=p['sr'], freq_range=p['freq_range'], n_tapers=p['n_tapers'], NFFT=p['NFFT'],
-                    data_window=p['data_window'], noverlap=noverlap)
-test_data_files = glob(p['TEST_DIR'] + '*.dat')
-test_target_files = [splitext(x)[0] + '.csv' for x in test_data_files]
-print('test files: ', len(test_data_files))
+def save(y_est, y_true, basename, p):
+    m = basename
+    decoder = {v: k for k, v in p['encoder'].items()}
+    np.savez(m + '_y_yhat.npz', y=y_true, yhat=y_est)
+    sampling_rate = 1 / (p['window_spacing'] / p['sr'])
+    bark.write_sampled(m + '_y_yhat.dat',
+            np.column_stack((y_true.astype('int16') * 256,
+                            (y_est * 256).astype('int16'))),
+            p['sr'])
+    bark.write_sampled(m + '_yhat.dat',
+                            y_est,
+                            p['sr'], decoder=decoder)
+    cat2csv.main(m + '_yhat.dat', p['model'] + '_yhat.csv')
 
-sampled_dsets = [bark.read_sampled(dfile) for dfile in test_data_files]
-event_dsets = [bark.read_events(tfile) for tfile in test_target_files]
-model = keras.models.load_model(p['modelfile'])
 
-for sampled_dset, event_dset in zip(sampled_dsets, event_dsets):
-    if len(event_dset.data) == 0:
-        continue
+def test(model, sampled_dset, event_dset, spa, p):
+    #if len(event_dset.data) == 0:
+    #    continue
     data_gen = data_generator(spa, sampled_dset.data, window_len=p['window_len'],
                               labels=event_dset.data, encoder=p['encoder'],
-                              batch_size=p['batch_size'], amplitude_norm=p['amplitude_norm'])
-    n_step_size =  (spa._NFFT - spa._noverlap)
-    n_steps = len(sampled_dset.data) // n_step_size
+                              batch_size=p['batch_size'], amplitude_norm=p['amplitude_norm'],
+                              loop=True)
+    n_step_size =  spa._NFFT - spa._noverlap
+    n_targets = np.ceil(len(sampled_dset.data) / n_step_size)
+    n_steps = np.ceil(n_targets / p['batch_size'])
+    print(n_steps)
     print(sampled_dset.name)
-    y_true = []
-    y_est = []
-    for i, (x_train, y_train) in enumerate(data_gen):
-        y_pred = model.predict_proba(x_train, batch_size=len(x_train))
-        y_true.append(y_train)
-        y_est.append(y_pred)
-y_true = np.row_stack(y_true)
-y_est = np.row_stack(y_est)
+    y_est = model.predict_generator(data_gen, n_steps, verbose=1)
+    y_true = all_targets_from_events(event_dset.data, n_targets, n_step_size,
+            p['encoder'], spa._rate)
+    print("accuracy score:", accuracy_score(np.argmax(y_true, 1), np.argmax(y_est, 1)))
+    print(classification_report(np.argmax(y_true, 1), np.argmax(y_est, 1)))
+    # save outputs
+    basename = splitext(sampled_dset.name)[0] 
+    save(y_est, y_true, basename, p)
 
-print("accuracy score:", accuracy_score(np.argmax(y_true, 1), np.argmax(y_est, 1)))
-print(classification_report(np.argmax(y_true, 1), np.argmax(y_est, 1)))
+def main(parameters_file):
+    p = yaml.safe_load(open(parameters_file, 'r'))
+    # load files: inputs and targets
+    sampled_dsets, event_dsets = read_files(p, 'test')
+    # spectral parameters
+    spa = create_spectra(p)
+    window_len = p['window_len']
+    n_timesteps = window_len * 2 + 1
+    print("time span: ", p['window_spacing'] / p['sr'] * n_timesteps)
+    print("freq span: ", spa._freqs[0], spa._freqs[-1])
+    print("model input dimensions: ", n_timesteps, len(spa._freqs))
+    # get model
+    model = load_model(p)
+    print(model.summary())
+    # test!
+    for sampled_dset, event_dset in zip(sampled_dsets, event_dsets):
+        test(model, sampled_dset, event_dset, spa, p)
 
-# save outputs
-decoder = {v: k for k, v in p['encoder'].items()}
-m = p['model']
-np.savez(m + '_y_yhat.npz', y=y_true, yhat=y_est)
-sampling_rate = 1 / (p['window_spacing'] / p['sr'])
-bark.write_sampled(m + '_y_yhat.dat',
-        np.column_stack((y_true.astype('int16') * 256,
-                        (y_est * 256).astype('int16'))),
-        sampling_rate)
-bark.write_sampled(m + '_yhat.dat',
-                        y_est,
-                        sampling_rate, decoder=decoder)
-cat2csv.main(m + '_yhat.dat', p['model'] + '_yhat.csv')
+if __name__ == '__main__':
+    import argparse
+    p = argparse.ArgumentParser(description="""
+    trains a neural network
+    sampled data must have the extension .dat
+    labels must have the same name as data, but with the .csv extension
+    """)
+    p.add_argument('params', help='a parameters file')
+    args = p.parse_args()
+    main(args.params)
