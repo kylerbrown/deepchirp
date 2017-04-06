@@ -1,7 +1,7 @@
 import keras
 from keras.models import Sequential, Model
 from keras.layers import Permute, Input, Conv2D, MaxPooling2D, Flatten, Dense, Reshape, GRU
-from keras.layers.wrappers import TimeDistributed
+from keras.layers.wrappers import TimeDistributed, Bidirectional
 from keras.layers.core import Dropout
 
 def get_model(model_name, n_timesteps, n_freqs, n_cats, **kwargs):
@@ -129,7 +129,7 @@ def dumb_r_tall(n_freqs, n_timesteps, n_cats):
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
     model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-    model.add(Conv2D(16, kernel_size=(2, 13), activation='relu'))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
     model.add(Reshape((6, -1)))
     model.add(GRU(50, dropout=0.1, recurrent_dropout=0.1))
     model.add(Dense(n_cats, activation='softmax'))
@@ -140,7 +140,7 @@ def dumb_r_tall(n_freqs, n_timesteps, n_cats):
 def m800msx256(n_freqs, n_timesteps, n_cats):
     model = Sequential()
     model.add(Conv2D(16,
-                     kernel_size=(4, 4),
+                     kernel_size=(5, 5),
                      activation='relu',
                      input_shape=(n_timesteps, n_freqs, 1)))
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
@@ -148,12 +148,19 @@ def m800msx256(n_freqs, n_timesteps, n_cats):
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
     model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-    model.add(Conv2D(16, kernel_size=(2, 5), activation='relu'))
-    model.add(Reshape((26, -1)))
-    model.add(GRU(10, dropout=0.1))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    #model.add(Flatten())
+    model.add(TimeDistributed(Flatten()))
+    #model.add(Reshape((7, -1)))
+    model.add(Bidirectional(GRU(32)))
+    #model.add(Dense(50, activation='relu'))
+    model.add(Dropout(0.5))
     model.add(Dense(n_cats, activation='softmax'))
     model.compile(loss=keras.losses.categorical_crossentropy,
-                  optimizer=keras.optimizers.Adam(),
+                  optimizer=keras.optimizers.SGD(lr=0.01,
+                                                 decay=1e-6,
+                                                 momentum=0.9,
+                                                 nesterov=True),
                   metrics=['accuracy'])
     return model
 

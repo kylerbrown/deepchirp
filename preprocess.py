@@ -74,6 +74,22 @@ def windowed_sample_iterator(spa, data, window_len, amplitude_norm=1):
         yield x_sample, t - (window_len + 1) / spec_sr
 
 
+def all_data_generator(spa,
+                   sampled_dsets,
+                   event_dsets,
+                   params):
+    while True:
+        for sampled_dset, event_dset in zip(sampled_dsets, event_dsets):
+            data_gen = data_generator(spa,
+                                      sampled_dset.data,
+                                      window_len=params['window_len'],
+                                      labels=event_dset.data,
+                                      encoder=params['encoder'],
+                                      batch_size=params['batch_size'],
+                                      amplitude_norm=params['amplitude_norm'],
+                                      loop=False)
+            yield from data_gen
+
 def data_generator(spa,
                    data,
                    window_len,

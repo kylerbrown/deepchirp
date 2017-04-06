@@ -2,7 +2,7 @@ from glob import glob
 from os.path import splitext, join
 import bark
 import resin
-from preprocess import data_generator
+from preprocess import all_data_generator
 from model import get_model
 import yaml
 
@@ -35,6 +35,21 @@ def read_files(params, kind):
     event_dsets = [bark.read_events(tfile) for tfile in target_files]
     return sampled_dsets, event_dsets
 
+def all_train(model, sampled_dsets, event_dsets, spa, params):
+    class_weights = {v: params['syllable_class_weight']
+                     for v in params['encoder'].values()}
+    class_weights[0] = 1  # silence is always weighted 1
+    batch_size = params['batch_size']
+    total_steps = 0
+    for sampled_dset in sampled_dsets:
+        n_specs = len(sampled_dset.data) / (spa._NFFT - spa._noverlap)
+        total_steps += n_specs / batch_size
+    data_gen = all_data_generator(spa,
+                              sampled_dsets,
+                              event_dsets,
+                              params)
+    model.fit_generator(data_gen, total_steps, epochs=params['n_epochs'],
+            verbose=1)
 
 def train(model, sampled_dset, event_dset, spa, params):
     class_weights = {v: params['syllable_class_weight']
@@ -64,7 +79,7 @@ def save(model, params):
 def main(paramfile):
     p = yaml.safe_load(open(paramfile, 'r'))
     # load files: inputs and targets
-    sampled_dsets, event_dsets = read_files(p, 'test')
+    sampled_dsets, event_dsets = read_files(p, 'train')
     # spectral parameters
     spa = create_spectra(p)
     window_len = p['window_len']
@@ -79,11 +94,7 @@ def main(paramfile):
                       n_cats=len(p['encoder']) + 1)
     print(model.summary())
     # train!
-    for epoch in range(p['n_epochs']):
-        for sampled_dset, event_dset in zip(sampled_dsets, event_dsets):
-            print(sampled_dset.name)
-            print("epoch: ", epoch)
-            train(model, sampled_dset, event_dset, spa, p)
+    all_train(model, sampled_dsets, event_dsets, spa, p)
     # save results
     save(model, p)
 
