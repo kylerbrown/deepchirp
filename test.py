@@ -25,12 +25,12 @@ def save(y_est, y_true, basename, p):
     np.savez(m + '_y_yhat.npz', y=y_true, yhat=y_est)
     sampling_rate = 1 / (p['window_spacing'] / p['sr'])
     bark.write_sampled(m + '_y_yhat.dat',
-            np.column_stack((y_true.astype('int16') * 256,
-                            (y_est * 256).astype('int16'))),
-            p['sr'])
+            np.column_stack([(y_true * 256).astype('int16'),
+                             (y_est * 256).astype('int16')]),
+            sampling_rate)
     bark.write_sampled(m + '_yhat.dat',
                             y_est,
-                            p['sr'], decoder=decoder)
+                            sampling_rate, decoder=decoder)
     cat2csv.main(m + '_yhat.dat', p['model'] + '_yhat.csv')
 
 

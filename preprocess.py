@@ -1,3 +1,5 @@
+import os
+from glob import iglob
 import numpy as np
 from keras.utils import to_categorical
 
@@ -20,6 +22,50 @@ def all_targets_from_events(events_df, n_targets, fft_interval, encoder, sr):
             targets[start_samp: stop_samp] = encoder[name]
     return to_categorical(targets, num_classes=len(encoder)+1)
 
+
+def encode_targets(targets, encoder):
+    ''' Coverts a list of targets as strings to one-hot encoded 
+    categoricals. Target is 0 if not in encoder
+    
+    encoder - a dictionary with string keys and integer values'''
+
+    enc_targets = [encoder[t] if t in encoder else 0 for t in targets]
+    return to_categorical(enc_targets)
+
+
+def image_iterator(directory, batch_size, encoder):
+    ''' Samples evenly from images in subdirectories
+    subdirectory name is the target name
+
+    If subdirectory name is not in encoder, target is assumed to be
+    the first class (0).
+    '''
+    classes = [o for o in os.listdir(directory)
+            if os.path.isdir(os.path.join(directory, o))]
+    n_classes = len(classes)
+    subdirs = [os.path.join(directory, c) for c in classes]
+    counter = [0 for _ in classes]
+    n_samples = [sum(1 for _ in iglob(os.path.join(directory, k, '*.npy'))) for k in classes]
+    print('number of training examples', list(zip(classes, n_samples)))
+    ith_class = 0
+    while True:
+        xs = []
+        ys = []
+        for i in range(batch_size):
+            xfile = os.path.join(subdirs[ith_class],
+                    '{:06}.npy'.format(counter[ith_class]))
+            x = np.load(xfile)
+            x = np.expand_dims(x, 2)  # keras expects third dimension
+            xs.append(x)
+            ys.append(classes[ith_class])
+            counter[ith_class] = (counter[ith_class] + 1) % n_samples[ith_class]
+            ith_class = (ith_class + 1) % n_classes
+        x_batch = np.array(xs)
+        y_batch = encode_targets(ys, encoder)
+        yield x_batch, y_batch
+
+
+
 def target_from_events(labels, encoder, t):
     '''
     NOTE: SLOW
@@ -38,7 +84,6 @@ def target_from_events(labels, encoder, t):
         cat = 0
     target[cat] = True
     return target
-
 
 def windowed_sample_iterator(spa, data, window_len, amplitude_norm=1):
     '''

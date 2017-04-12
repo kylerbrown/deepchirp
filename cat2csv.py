@@ -2,8 +2,8 @@ import numpy as np
 import bark
 from scipy import stats
 
-default_min_syl = 20
-default_min_silent = 10
+default_min_syl = 15
+default_min_silent = 7
 def first_pass(cats, decoder, time_interval):
     '''cats:  a vector of length N, where N is the number of targets
         decoder: a map from values in cats to a syllable name

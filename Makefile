@@ -18,7 +18,7 @@ train/pink121/:
 train/pink121/%.csv.raw: $(pink121d)/%_edit.csv
 	@#remove all z or blank labels
 	cp $^.meta.yaml $@.meta.yaml
-	python enrich_csv.py $^ $@
+	python enrich_csv.py -b 0.03 -l y $^ $@
 train/pink121/%.dat: $(pink121d)/%.dat train/pink121/%.csv.raw
 	dat-enrich -w 0.4 $^ $@ 
 
@@ -38,7 +38,7 @@ train/black33/:
 train/black33/%.csv.raw: $(black33d)/%_edit.csv
 	@#remove all z or blank labels
 	cp $^.meta.yaml $@.meta.yaml
-	python enrich_csv.py $^ $@
+	python enrich_csv.py -b 0.03 -l y $^ $@
 train/black33/%.dat: $(black33d)/%.dat train/black33/%.csv.raw
 	dat-enrich -w 0.4 $^ $@ 
 
