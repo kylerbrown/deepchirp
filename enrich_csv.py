@@ -65,6 +65,7 @@ def remove_noise_samples(df, noise_name):
     equals the mean of the number of other classes'''
     n_noise = len(df.name[(df.name == noise_name)])
     noisefreedf = df[df.name != noise_name]
+    print(noisefreedf.name.groupby(noisefreedf.name).count())
     avg_class_count = int(noisefreedf.name.groupby(noisefreedf.name).count(
     ).mean())
     n_drop = n_noise - avg_class_count

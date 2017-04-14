@@ -42,3 +42,23 @@ train/black33/%.csv.raw: $(black33d)/%_edit.csv
 train/black33/%.dat: $(black33d)/%.dat train/black33/%.csv.raw
 	dat-enrich -w 0.4 $^ $@ 
 
+white17d = /home/kjbrown/labelreview/white17
+white17_rhd_raw_csvs = $(wildcard $(white17d)/*_edit.csv)
+white17_rhd_dats = $(patsubst %_edit.csv, %.dat, $(white17_rhd_raw_csvs))
+white17_rhd_train_dats = $(patsubst $(white17d)/%, train/white17/%, $(white17_rhd_dats))
+## train_white17	-	get white17_rhd data for training
+.PHONY: train_white17
+train_white17: train/white17/ test/white17/ $(white17_rhd_train_dats)
+	# move test set
+	mv ./train/white17/2016-06-05-day-0906_raw-mic.* ./test/white17/
+test/white17/:
+	mkdir -p $@
+train/white17/:
+	mkdir -p $@
+train/white17/%.csv.raw: $(white17d)/%_edit.csv
+	@#remove all z or blank labels
+	cp $^.meta.yaml $@.meta.yaml
+	python enrich_csv.py -b 0.03 -l y $^ $@
+train/white17/%.dat: $(white17d)/%.dat train/white17/%.csv.raw
+	dat-enrich -w 0.4 $^ $@ 
+

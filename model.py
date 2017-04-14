@@ -1,19 +1,31 @@
 import keras
 from keras.models import Sequential, Model
-from keras.layers import Permute, Input, Conv2D, MaxPooling2D, Flatten, Dense, Reshape, GRU, GlobalAveragePooling1D
+from keras.layers import Permute, Input, Conv2D, MaxPooling2D, Flatten, Dense, Reshape, GRU, GlobalAveragePooling1D, GlobalAveragePooling2D, LSTM
 from keras.layers.wrappers import TimeDistributed, Bidirectional
 from keras.layers.core import Dropout
 
 def get_model(model_name, n_timesteps, n_freqs, n_cats, **kwargs):
     print(model_name)
-    if model_name == 'recurrent':
-        m =  recurrent(n_cats, **kwargs)
+    if model_name == 'simplecnn':
+        m =  simplecnn(n_timesteps, n_freqs, n_cats, **kwargs)
+    elif model_name == 'simplecnn2':
+        m =  simplecnn2(n_timesteps, n_freqs, n_cats, **kwargs)
+    elif model_name == 'simplecnn3':
+        m =  simplecnn3(n_timesteps, n_freqs, n_cats, **kwargs)
+    elif model_name == 'simplecnn4':
+        m =  simplecnn4(n_timesteps, n_freqs, n_cats, **kwargs)
+    elif model_name == 'lstm':
+        m =  lstm(n_timesteps, n_freqs, n_cats, **kwargs)
     elif model_name == 'okanoya_r':
         m = okanoya_r_model(n_timesteps, n_freqs, n_cats, **kwargs)
     elif model_name == 'okanoya':
         m = okanoya_model(n_timesteps, n_freqs, n_cats)
     elif model_name == 'inception':
         m = inception(n_timesteps, n_freqs, n_cats)
+    elif model_name == 'inception2':
+        m = inception2(n_timesteps, n_freqs, n_cats)
+    elif model_name == 'inception3':
+        m = inception3(n_timesteps, n_freqs, n_cats)
     elif model_name == 'dumb_r':
         m = dumb_r(n_timesteps, n_freqs, n_cats)
     elif model_name == 'dumb_dense_tall':
@@ -56,6 +68,88 @@ def recurrent(n_cats, batch_size):
     return model
 
 
+def inception3(n_freqs, n_timesteps, n_cats):
+    '''n_freqs: length of frequency dimension
+    n_timesteps: length of time dimension
+    n_cats: number of output categories (number of syllables + 1)
+    '''
+    a = Input(shape=(n_timesteps, n_freqs, 1))
+    x = Conv2D(16, kernel_size=(3, 3), strides=(2, 2), activation='relu')(a)
+    x = Conv2D(16, kernel_size=(3, 3), strides=(1, 1), activation='relu')(a)
+    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
+    x = Conv2D(32, kernel_size=(3, 3), activation='relu')(x)
+    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
+    # inception layer
+    tower_1 = Conv2D(32, (1, 1), padding='same', activation='relu')(x)
+    tower_1 = Conv2D(32, (3, 3), padding='same', activation='relu')(tower_1)
+    tower_2 = Conv2D(32, (1, 1), padding='same', activation='relu')(x)
+    tower_2 = Conv2D(32, (3, 3), padding='same', activation='relu')(tower_2)
+    tower_2 = Conv2D(32, (3, 3), padding='same', activation='relu')(tower_2)
+    tower_3 = MaxPooling2D((3, 3), strides=(1, 1), padding='same')(x)
+    tower_3 = Conv2D(32, (1, 1), padding='same', activation='relu')(tower_3)
+    x = keras.layers.concatenate([tower_1, tower_2, tower_3], axis=3)
+    # pool
+    x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
+    # inception layer
+    tower_1 = Conv2D(64, (1, 1), padding='same', activation='relu')(x)
+    tower_1 = Conv2D(64, (3, 3), padding='same', activation='relu')(tower_1)
+    tower_2 = Conv2D(64, (1, 1), padding='same', activation='relu')(x)
+    tower_2 = Conv2D(64, (3, 3), padding='same', activation='relu')(tower_2)
+    tower_2 = Conv2D(64, (3, 3), padding='same', activation='relu')(tower_2)
+    tower_3 = MaxPooling2D((3, 3), strides=(1, 1), padding='same')(x)
+    tower_3 = Conv2D(64, (1, 1), padding='same', activation='relu')(tower_3)
+    x = keras.layers.concatenate([tower_1, tower_2, tower_3], axis=3)
+    x = Conv2D(128, kernel_size=(1, 1), activation='relu')(x)
+    x = Conv2D(128, kernel_size=(3, 3), activation='relu')(x)
+    x = Flatten()(x)
+    x = Dense(256, activation='relu')(x)
+    x = Dropout(0.5)(x)
+    b = Dense(n_cats, activation='softmax')(x)
+    model = Model(inputs=a, outputs=b)
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                  optimizer=keras.optimizers.Adam(),
+                  metrics=['accuracy'])
+    return model
+
+def inception2(n_freqs, n_timesteps, n_cats):
+    '''n_freqs: length of frequency dimension
+    n_timesteps: length of time dimension
+    n_cats: number of output categories (number of syllables + 1)
+    '''
+    a = Input(shape=(n_timesteps, n_freqs, 1))
+    x = Conv2D(64, kernel_size=(5, 5), activation='relu')(a)
+    x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(x)
+    x = Conv2D(64, kernel_size=(4, 4), activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(x)
+    # inception layer
+    tower_1 = Conv2D(32, (1, 1), padding='same', activation='relu')(x)
+    tower_1 = Conv2D(32, (3, 3), padding='same', activation='relu')(tower_1)
+    tower_2 = Conv2D(32, (1, 1), padding='same', activation='relu')(x)
+    tower_2 = Conv2D(32, (5, 5), padding='same', activation='relu')(tower_2)
+    tower_3 = MaxPooling2D((3, 3), strides=(1, 1), padding='same')(x)
+    tower_3 = Conv2D(32, (1, 1), padding='same', activation='relu')(tower_3)
+    x = keras.layers.concatenate([tower_1, tower_2, tower_3], axis=3)
+    # inception layer
+    tower_1 = Conv2D(32, (1, 1), padding='same', activation='relu')(x)
+    tower_1 = Conv2D(32, (3, 3), padding='same', activation='relu')(tower_1)
+    tower_2 = Conv2D(32, (1, 1), padding='same', activation='relu')(x)
+    tower_2 = Conv2D(32, (5, 5), padding='same', activation='relu')(tower_2)
+    tower_3 = MaxPooling2D((3, 3), strides=(1, 1), padding='same')(x)
+    tower_3 = Conv2D(32, (1, 1), padding='same', activation='relu')(tower_3)
+    x = keras.layers.concatenate([tower_1, tower_2, tower_3], axis=3)
+    x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(x)
+    x = Conv2D(64, kernel_size=(1, 1), activation='relu')(x)
+    x = Conv2D(64, kernel_size=(4, 4), activation='relu')(x)
+    x = Flatten()(x)
+    x = Dense(256, activation='relu')(x)
+    x = Dropout(0.5)(x)
+    b = Dense(n_cats, activation='softmax')(x)
+    model = Model(inputs=a, outputs=b)
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                  optimizer=keras.optimizers.Adam(),
+                  metrics=['accuracy'])
+    return model
+
 def inception(n_freqs, n_timesteps, n_cats):
     '''n_freqs: length of frequency dimension
     n_timesteps: length of time dimension
@@ -70,7 +164,7 @@ def inception(n_freqs, n_timesteps, n_cats):
     tower_1 = Conv2D(32, (1, 1), padding='same', activation='relu')(x)
     tower_1 = Conv2D(32, (3, 3), padding='same', activation='relu')(tower_1)
     tower_2 = Conv2D(32, (1, 1), padding='same', activation='relu')(x)
-    tower_2 = Conv2D(16, (5, 5), padding='same', activation='relu')(tower_2)
+    tower_2 = Conv2D(32, (5, 5), padding='same', activation='relu')(tower_2)
     tower_3 = MaxPooling2D((3, 3), strides=(1, 1), padding='same')(x)
     tower_3 = Conv2D(32, (1, 1), padding='same', activation='relu')(tower_3)
     x = keras.layers.concatenate([tower_1, tower_2, tower_3], axis=3)
@@ -78,7 +172,7 @@ def inception(n_freqs, n_timesteps, n_cats):
     tower_1 = Conv2D(32, (1, 1), padding='same', activation='relu')(x)
     tower_1 = Conv2D(32, (3, 3), padding='same', activation='relu')(tower_1)
     tower_2 = Conv2D(32, (1, 1), padding='same', activation='relu')(x)
-    tower_2 = Conv2D(16, (5, 5), padding='same', activation='relu')(tower_2)
+    tower_2 = Conv2D(32, (5, 5), padding='same', activation='relu')(tower_2)
     tower_3 = MaxPooling2D((3, 3), strides=(1, 1), padding='same')(x)
     tower_3 = Conv2D(32, (1, 1), padding='same', activation='relu')(tower_3)
     x = keras.layers.concatenate([tower_1, tower_2, tower_3], axis=3)
@@ -178,6 +272,120 @@ def dumb_r_tall(n_freqs, n_timesteps, n_cats):
     model.compile(loss=keras.losses.categorical_crossentropy,
                   optimizer=keras.optimizers.Adam(),
                   metrics=['accuracy'])
+
+
+def simplecnn3(n_freqs, n_timesteps, n_cats):
+    model = Sequential()
+    model.add(Conv2D(16,
+                     kernel_size=(5, 5),
+                     activation='relu',
+                     input_shape=(n_timesteps, n_freqs, 1)))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(1, 1), activation='relu'))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(1, 1), activation='relu'))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(16, kernel_size=(4, 4), activation='relu'))
+    model.add(Flatten())
+    model.add(Dense(64))
+    model.add(Dropout(0.4))
+    model.add(Dense(n_cats, activation='softmax'))
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                  optimizer=keras.optimizers.Adam(),
+                  metrics=['accuracy'])
+    return model
+
+
+def simplecnn4(n_freqs, n_timesteps, n_cats):
+    model = Sequential()
+    model.add(Conv2D(32,
+                     kernel_size=(5, 5),
+                     activation='relu',
+                     input_shape=(n_timesteps, n_freqs, 1)))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(32, kernel_size=(1, 1), activation='relu'))
+    model.add(Conv2D(64, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(32, kernel_size=(1, 1), activation='relu'))
+    model.add(Conv2D(64, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(32, kernel_size=(1, 1), activation='relu'))
+    model.add(Conv2D(64, kernel_size=(4, 4), activation='relu'))
+    model.add(Flatten())
+    model.add(Dense(128))
+    model.add(Dropout(0.5))
+    model.add(Dense(n_cats, activation='softmax'))
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                  optimizer=keras.optimizers.Adam(),
+                  metrics=['accuracy'])
+    return model
+def simplecnn2(n_freqs, n_timesteps, n_cats):
+    model = Sequential()
+    model.add(Conv2D(32,
+                     kernel_size=(5, 5),
+                     activation='relu',
+                     input_shape=(n_timesteps, n_freqs, 1)))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(64, kernel_size=(1, 1), activation='relu'))
+    model.add(Conv2D(32, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(64, kernel_size=(1, 1), activation='relu'))
+    model.add(Conv2D(32, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(32, kernel_size=(4, 4), activation='relu'))
+    model.add(Flatten())
+    model.add(Dense(128))
+    model.add(Dropout(0.4))
+    model.add(Dense(n_cats, activation='softmax'))
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                  optimizer=keras.optimizers.Adam(),
+                  metrics=['accuracy'])
+    return model
+
+def simplecnn(n_freqs, n_timesteps, n_cats):
+    model = Sequential()
+    model.add(Conv2D(32,
+                     kernel_size=(5, 5),
+                     activation='relu',
+                     input_shape=(n_timesteps, n_freqs, 1)))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(64, kernel_size=(1, 1), activation='relu'))
+    model.add(Conv2D(32, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(64, kernel_size=(1, 1), activation='relu'))
+    model.add(Conv2D(32, kernel_size=(4, 4), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(Conv2D(64, kernel_size=(1, 1), activation='relu'))
+    model.add(Conv2D(256, kernel_size=(3, 3), activation='relu'))
+    model.add(GlobalAveragePooling2D())
+    model.add(Dense(n_cats, activation='softmax'))
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                  optimizer=keras.optimizers.Adam(),
+                  metrics=['accuracy'])
+    return model
+
+def lstm(n_freqs, n_timesteps, n_cats):
+    model = Sequential()
+    model.add(Conv2D(16,
+                     kernel_size=(3, 3),
+                     strides=(1,2),
+                     activation='relu',
+                     input_shape=(n_timesteps, n_freqs, 1)))
+    model.add(Conv2D(32, kernel_size=(3, 3), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(3, 3), strides=(2, 2)))
+    model.add(Conv2D(64, kernel_size=(3, 3), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(3, 3), strides=(2, 2)))
+    model.add(Conv2D(128, kernel_size=(3, 3), activation='relu'))
+    model.add(TimeDistributed(Flatten()))
+    model.add(Bidirectional(LSTM(32)))
+    model.add(Dropout(0.4))
+    model.add(Dense(n_cats, activation='softmax'))
+    model.compile(loss=keras.losses.categorical_crossentropy,
+                  optimizer=keras.optimizers.Adam(),
+                  metrics=['accuracy'])
+    return model
 
 def m800msx256(n_freqs, n_timesteps, n_cats):
     model = Sequential()
