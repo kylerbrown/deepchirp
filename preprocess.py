@@ -30,8 +30,57 @@ def encode_targets(targets, encoder):
     encoder - a dictionary with string keys and integer values'''
 
     enc_targets = [encoder[t] if t in encoder else 0 for t in targets]
-    return to_categorical(enc_targets)
+    return to_categorical(enc_targets, num_classes=len(encoder) + 1)
 
+
+def count_image_samples(directory):
+    '''gets the number of samples within subdirectories
+    useful for knowing how many samples to retrieve from the 
+    test iterator'''
+    classes = [o for o in os.listdir(directory)
+            if os.path.isdir(os.path.join(directory, o))]
+    n_samples = [sum(1 for _ in iglob(os.path.join(directory, k, '*.npy'))) for k in classes]
+    return sum(n_samples)
+
+
+def test_image_iterator(directory, batch_size, encoder, loop=True):
+    ''' Samples sequentially from images in subdirectories
+    subdirectory name is the target name
+
+    If subdirectory name is not in encoder, target is assumed to be
+    the first class (0).
+    '''
+    classes = [o for o in os.listdir(directory)
+            if os.path.isdir(os.path.join(directory, o))]
+    n_classes = len(classes)
+    subdirs = [os.path.join(directory, c) for c in classes]
+    counter = [0 for _ in classes]
+    n_samples = [sum(1 for _ in iglob(os.path.join(directory, k, '*.npy'))) for k in classes]
+    print('number of test examples', list(zip(classes, n_samples)))
+    do_loop = True
+    while do_loop:
+        xs = []
+        ys = []
+        for ith_class in range(len(classes)):
+            for j in range(n_samples[ith_class]):
+                xfile = os.path.join(subdirs[ith_class],
+                        '{:06}.npy'.format(j))
+                x = np.load(xfile)
+                x = np.expand_dims(x, 2)  # keras expects third dimension
+                xs.append(x)
+                ys.append(classes[ith_class])
+                if len(xs) >= batch_size:
+                    x_batch = np.array(xs)
+                    y_batch = encode_targets(ys, encoder)
+                    yield x_batch, y_batch
+                    xs = []
+                    ys = []
+            x_batch = np.array(xs)
+            y_batch = encode_targets(ys, encoder)
+            yield x_batch, y_batch
+            xs = []
+            ys = []
+        do_loop = loop
 
 def image_iterator(directory, batch_size, encoder):
     ''' Samples evenly from images in subdirectories

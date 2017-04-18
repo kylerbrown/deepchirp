@@ -1,61 +1,27 @@
-from os.path import splitext, join
-import bark
-import resin
-from preprocess import image_iterator, all_data_generator
 from model import get_model
+from utils import model_dims, default_model_filename, default_image_directory
+from preprocess import image_iterator
 import yaml
-from utils import read_files, create_spectra
+import os.path
 
 
-def all_train(model, spa, params):
-    sampled_dsets, event_dsets = read_files(params, 'train')
-    batch_size = params['batch_size']
-    total_steps = 0
-    for sampled_dset in sampled_dsets:
-        n_specs = len(sampled_dset.data) / (spa._NFFT - spa._noverlap)
-        total_steps += n_specs / batch_size
-    data_gen = all_data_generator(spa, sampled_dsets, event_dsets, params)
-    model.fit_generator(data_gen,
-                        total_steps,
-                        epochs=params['n_epochs'],
-                        verbose=1)
-
-def train_from_images(model, params):
+def train_from_images(model, image_dir, params):
     ''' trains network on prebuilt image dataset'''
-    p = params
-    im_gen = image_iterator(join(p['image_dir'], p['bird']),
-            p['batch_size'],
-            p['encoder'])
-    next(im_gen)
-    model.fit_generator(im_gen, 1000, epochs=params['n_epochs'], verbose=1) 
+    im_gen = image_iterator(image_dir, params['batch_size'], params['encoder'])
+    model.fit_generator(im_gen, params['steps_per_epoch'], epochs=params['epochs'], verbose=1)
 
 
-def save(model, params):
-    basename = join(params['model_dir'], params['model'])
-    modelfname = '{}_{}_{}.h5'.format(basename, params['model_ver'],
-                                      params['bird'])
-    model.save(modelfname)
-
-
-def main(paramfile, raw):
-    p = yaml.safe_load(open(paramfile, 'r'))
-    # spectral parameters
-    spa = create_spectra(p)
-    window_len = p['window_len']
-    n_timesteps = window_len * 2 + 1
-    # get model
-    model = get_model(p['model'],
-                      len(spa._freqs),
-                      n_timesteps,
-                      n_cats=len(p['encoder']) + 1)
-    # train!
-    if raw:
-        all_train(model, spa, p)
-    else:
-        train_from_images(model, p)
-
-    # save results
-    save(model, p)
+def main(modelparams, birdparams, modelfilename=None, imagedir=None):
+    p = yaml.safe_load(open(modelparams, 'r'))
+    p.update(yaml.safe_load(open(birdparams, 'r')))
+    if imagedir is None:
+        imagedir = default_image_directory(modelparams, birdparams)
+    imagedir = os.path.join(imagedir, 'train')
+    m = get_model(p['model'], *model_dims(p))
+    train_from_images(m, imagedir, p)
+    if modelfilename is None:
+        modelfilename = default_model_filename(modelparams, birdparams)
+    m.save(modelfilename)
 
 
 if __name__ == '__main__':
@@ -66,9 +32,8 @@ if __name__ == '__main__':
     labels must have the same name as data, but with the .csv extension
     """)
     p.add_argument('params', help='a parameters file')
-    p.add_argument('-r', '--raw',
-            help='''compute ffts on the fly, 
-            otherwise uses images created by to_images.py''',
-            action='store_true')
+    p.add_argument('birdparams', help='bird-specific parameters')
+    p.add_argument('--imagedir', help='directory containing training examples')
+    p.add_argument('-o', '--out', help='location to save trained model')
     args = p.parse_args()
-    main(args.params, args.raw)
+    main(args.params, args.birdparams, args.out, args.imagedir) 

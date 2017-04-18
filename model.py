@@ -4,51 +4,12 @@ from keras.layers import Permute, Input, Conv2D, MaxPooling2D, Flatten, Dense, R
 from keras.layers.wrappers import TimeDistributed, Bidirectional
 from keras.layers.core import Dropout
 
-def get_model(model_name, n_timesteps, n_freqs, n_cats, **kwargs):
-    print(model_name)
-    if model_name == 'simplecnn':
-        m =  simplecnn(n_timesteps, n_freqs, n_cats, **kwargs)
-    elif model_name == 'simplecnn2':
-        m =  simplecnn2(n_timesteps, n_freqs, n_cats, **kwargs)
-    elif model_name == 'simplecnn3':
-        m =  simplecnn3(n_timesteps, n_freqs, n_cats, **kwargs)
-    elif model_name == 'simplecnn4':
-        m =  simplecnn4(n_timesteps, n_freqs, n_cats, **kwargs)
-    elif model_name == 'lstm':
-        m =  lstm(n_timesteps, n_freqs, n_cats, **kwargs)
-    elif model_name == 'okanoya_r':
-        m = okanoya_r_model(n_timesteps, n_freqs, n_cats, **kwargs)
-    elif model_name == 'okanoya':
-        m = okanoya_model(n_timesteps, n_freqs, n_cats)
-    elif model_name == 'inception':
-        m = inception(n_timesteps, n_freqs, n_cats)
-    elif model_name == 'inception2':
-        m = inception2(n_timesteps, n_freqs, n_cats)
-    elif model_name == 'inception3':
-        m = inception3(n_timesteps, n_freqs, n_cats)
-    elif model_name == 'dumb_r':
-        m = dumb_r(n_timesteps, n_freqs, n_cats)
-    elif model_name == 'dumb_dense_tall':
-        m = dumb_dense_tall(n_timesteps, n_freqs, n_cats)
-    elif model_name == 'dumb_r_tall':
-        m = dumb_r_tall(n_timesteps, n_freqs, n_cats)
-    elif model_name == 'dummy':
-        m = dummy_model(n_timesteps, n_freqs, n_cats)
-    elif model_name == 'm800msx256':
-        m = m800msx256(n_timesteps, n_freqs, n_cats)
-    elif model_name == 'm800msxf512':
-        m = m800msxf512(n_timesteps, n_freqs, n_cats)
-    else:
-        raise KeyError("could not find model {}".format(model_name))
-    print(m.summary())
-    return m
-
 def dummy_model(n_timesteps, n_freqs, n_cats):
     model = Sequential()
     model.add(Conv2D(1,
                      kernel_size=(1, 1),
                      activation='relu',
-                     input_shape=(n_freqs, n_timesteps, 1)))
+                     input_shape=(n_timesteps, n_freqs, 1)))
     model.add(Flatten())
     model.add(Dense(n_cats, activation='softmax'))
     model.compile(loss=keras.losses.categorical_crossentropy,
@@ -56,19 +17,9 @@ def dummy_model(n_timesteps, n_freqs, n_cats):
                   metrics=['accuracy'])
     return model
 
-def recurrent(n_cats, batch_size):
-    a = Input(batch_shape=(batch_size, 1, n_cats))
-    x = GRU(50, dropout=0.1, return_sequences=True, stateful=True, recurrent_dropout=0.1)(a)
-    x = GRU(50, dropout=0.1, stateful=True, recurrent_dropout=0.1)(x)
-    b = Dense(n_cats, activation='softmax')(x)
-    model = Model(inputs=a, outputs=b)
-    model.compile(loss=keras.losses.categorical_crossentropy,
-                  optimizer=keras.optimizers.Adam(),
-                  metrics=['accuracy'])
-    return model
 
 
-def inception3(n_freqs, n_timesteps, n_cats):
+def inception3(n_timesteps, n_freqs, n_cats):
     '''n_freqs: length of frequency dimension
     n_timesteps: length of time dimension
     n_cats: number of output categories (number of syllables + 1)
@@ -111,7 +62,7 @@ def inception3(n_freqs, n_timesteps, n_cats):
                   metrics=['accuracy'])
     return model
 
-def inception2(n_freqs, n_timesteps, n_cats):
+def inception2(n_timesteps, n_freqs, n_cats):
     '''n_freqs: length of frequency dimension
     n_timesteps: length of time dimension
     n_cats: number of output categories (number of syllables + 1)
@@ -150,7 +101,7 @@ def inception2(n_freqs, n_timesteps, n_cats):
                   metrics=['accuracy'])
     return model
 
-def inception(n_freqs, n_timesteps, n_cats):
+def inception(n_timesteps, n_freqs, n_cats):
     '''n_freqs: length of frequency dimension
     n_timesteps: length of time dimension
     n_cats: number of output categories (number of syllables + 1)
@@ -188,7 +139,7 @@ def inception(n_freqs, n_timesteps, n_cats):
                   metrics=['accuracy'])
     return model
 
-def okanoya2(n_freqs, n_timesteps, n_cats):
+def okanoya2(n_timesteps, n_freqs, n_cats):
     '''n_freqs: length of frequency dimension
     n_timesteps: length of time dimension
     n_cats: number of output categories (number of syllables + 1)
@@ -214,7 +165,7 @@ def okanoya2(n_freqs, n_timesteps, n_cats):
     #    batch_size=batch_input_shape))
     return model
 
-def dumb_dense_tall(n_freqs, n_timesteps, n_cats):
+def dumb_dense_tall(n_timesteps, n_freqs, n_cats):
     model = Sequential()
     model.add(Conv2D(16,
                      kernel_size=(4, 4),
@@ -254,7 +205,7 @@ def dumb_r(n_freqs, n_timesteps, n_cats):
                   metrics=['accuracy'])
     return model
 
-def dumb_r_tall(n_freqs, n_timesteps, n_cats):
+def dumb_r_tall(n_timesteps, n_freqs, n_cats):
     model = Sequential()
     model.add(Conv2D(16,
                      kernel_size=(4, 4),
@@ -274,7 +225,7 @@ def dumb_r_tall(n_freqs, n_timesteps, n_cats):
                   metrics=['accuracy'])
 
 
-def simplecnn3(n_freqs, n_timesteps, n_cats):
+def simplecnn3(n_timesteps, n_freqs, n_cats):
     model = Sequential()
     model.add(Conv2D(16,
                      kernel_size=(5, 5),
@@ -298,7 +249,7 @@ def simplecnn3(n_freqs, n_timesteps, n_cats):
     return model
 
 
-def simplecnn4(n_freqs, n_timesteps, n_cats):
+def simplecnn4(n_timesteps, n_freqs, n_cats):
     model = Sequential()
     model.add(Conv2D(32,
                      kernel_size=(5, 5),
@@ -344,7 +295,7 @@ def simplecnn2(n_freqs, n_timesteps, n_cats):
                   metrics=['accuracy'])
     return model
 
-def simplecnn(n_freqs, n_timesteps, n_cats):
+def simplecnn(n_timesteps, n_freqs, n_cats):
     model = Sequential()
     model.add(Conv2D(32,
                      kernel_size=(5, 5),
@@ -366,7 +317,7 @@ def simplecnn(n_freqs, n_timesteps, n_cats):
                   metrics=['accuracy'])
     return model
 
-def lstm(n_freqs, n_timesteps, n_cats):
+def lstm(n_timesteps, n_freqs, n_cats):
     model = Sequential()
     model.add(Conv2D(16,
                      kernel_size=(3, 3),
@@ -387,7 +338,7 @@ def lstm(n_freqs, n_timesteps, n_cats):
                   metrics=['accuracy'])
     return model
 
-def m800msx256(n_freqs, n_timesteps, n_cats):
+def m800msx256(n_timesteps, n_freqs, n_cats):
     model = Sequential()
     model.add(Conv2D(32,
                      kernel_size=(5, 5),
@@ -414,7 +365,7 @@ def m800msx256(n_freqs, n_timesteps, n_cats):
                   metrics=['accuracy'])
     return model
 
-def m800msxf512(n_freqs, n_timesteps, n_cats):
+def m800msxf512(n_timesteps, n_freqs, n_cats):
     model = Sequential()
     model.add(Conv2D(16,
                      kernel_size=(4, 4),
@@ -505,3 +456,8 @@ def okanoya_model(n_freqs, n_timesteps, n_cats):
                                                  nesterov=True),
                   metrics=['accuracy'])
     return model
+
+def get_model(modelname, input_size1, input_size2, output_size, *args, **kwargs):
+    if modelname not in globals():
+        raise KeyError('{} not a function in model.py'.format(modelname))
+    return globals()[modelname](input_size1, input_size2, output_size, *args, **kwargs)

@@ -1,42 +1,27 @@
-from sklearn.metrics import accuracy_score, classification_report
+from preprocess import all_targets_from_events, data_generator, test_image_iterator
+from utils import read_files, create_spectra, default_model_filename, save, default_image_directory
+import os.path
 import keras
-from sys import stdout, argv
-from glob import glob
-from os.path import join, splitext
-import pandas as pd
-import bark
-import resin
-from preprocess import all_targets_from_events, data_generator
 import numpy as np
+from sklearn.metrics import accuracy_score, classification_report
 import yaml
-import cat2csv
-from train import read_files, create_spectra
 
-def load_model(params):
-    basename = join(params['model_dir'], params['model'])
-    modelfname = '{}_{}_{}.h5'.format(basename, params['model_ver'],
-                                      params['bird'])
-    print(modelfname)
-    return keras.models.load_model(modelfname)
-
-def save(y_est, y_true, basename, p):
-    m = basename
-    decoder = {v: k for k, v in p['encoder'].items()}
-    np.savez(m + '_y_yhat.npz', y=y_true, yhat=y_est)
-    sampling_rate = 1 / (p['window_spacing'] / p['sr'])
-    bark.write_sampled(m + '_y_yhat.dat',
-            np.column_stack([(y_true * 256).astype('int16'),
-                             (y_est * 256).astype('int16')]),
-            sampling_rate)
-    bark.write_sampled(m + '_yhat.dat',
-                            y_est,
-                            sampling_rate, decoder=decoder)
-    cat2csv.main(m + '_yhat.dat', p['model'] + '_yhat.csv')
-
+def test_images(model, image_dir, p):
+    image_gen = test_image_iterator(image_dir, p['batch_size'], encoder=p['encoder'],
+            loop=False)
+    y = []
+    yhat = []
+    for batch_x, batch_y in image_gen:
+        batch_yhat = model.predict_on_batch(batch_x)
+        y.append(batch_y)
+        yhat.append(batch_yhat)
+    
+    yhat = np.row_stack(yhat)
+    y = np.row_stack(y)
+    print("accuracy score:", accuracy_score(np.argmax(y, 1), np.argmax(yhat, 1)))
+    print(classification_report(np.argmax(y, 1), np.argmax(yhat, 1)))
 
 def test(model, sampled_dset, event_dset, spa, p):
-    #if len(event_dset.data) == 0:
-    #    continue
     data_gen = data_generator(spa, sampled_dset.data, window_len=p['window_len'],
                               labels=event_dset.data, encoder=p['encoder'],
                               batch_size=p['batch_size'], amplitude_norm=p['amplitude_norm'],
@@ -52,26 +37,22 @@ def test(model, sampled_dset, event_dset, spa, p):
     print("accuracy score:", accuracy_score(np.argmax(y_true, 1), np.argmax(y_est, 1)))
     print(classification_report(np.argmax(y_true, 1), np.argmax(y_est, 1)))
     # save outputs
-    basename = splitext(sampled_dset.name)[0] 
-    save(y_est, y_true, basename, p)
+    basename = '{}_{}'.format(os.path.splitext(sampled_dset.path)[0], p['model'])
+    save(y_est, basename, p, y_true)
 
-def main(parameters_file):
+def main(parameters_file, bird_params, modelfile=None, imagedir=None):
     p = yaml.safe_load(open(parameters_file, 'r'))
-    # load files: inputs and targets
-    sampled_dsets, event_dsets = read_files(p, 'test')
-    # spectral parameters
-    spa = create_spectra(p)
-    window_len = p['window_len']
-    n_timesteps = window_len * 2 + 1
-    print("time span: ", p['window_spacing'] / p['sr'] * n_timesteps)
-    print("freq span: ", spa._freqs[0], spa._freqs[-1])
-    print("model input dimensions: ", n_timesteps, len(spa._freqs))
-    # get model
-    model = load_model(p)
+    p.update(yaml.safe_load(open(bird_params, 'r')))
+    if imagedir is None:
+        imagedir = default_image_directory(parameters_file, bird_params)
+    imagedir = os.path.join(imagedir, 'test')
+    if modelfile is None:
+        modelfile = default_model_filename(parameters_file, bird_params)
+    model = keras.models.load_model(modelfile)
     print(model.summary())
-    # test!
-    for sampled_dset, event_dset in zip(sampled_dsets, event_dsets):
-        test(model, sampled_dset, event_dset, spa, p)
+    test_images(model, imagedir, p)
+    #for sampled_dset, event_dset in zip(sampled_dsets, event_dsets):
+    #    test(model, sampled_dset, event_dset, spa, p)
 
 if __name__ == '__main__':
     import argparse
@@ -80,6 +61,9 @@ if __name__ == '__main__':
     sampled data must have the extension .dat
     labels must have the same name as data, but with the .csv extension
     """)
-    p.add_argument('params', help='a parameters file')
+    p.add_argument('params', help='a model parameters file')
+    p.add_argument('birdparams', help='a bird parameters file')
+    p.add_argument('--imagedir', help='directory containing training examples')
+    p.add_argument('-m', '--model', help='model to test')
     args = p.parse_args()
-    main(args.params)
+    main(args.params, args.birdparams, args.model, args.imagedir)

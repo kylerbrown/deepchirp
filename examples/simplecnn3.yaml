@@ -1,0 +1,20 @@
+# spectral parameters
+sr: 30000
+NFFT: 256
+data_window: 256
+freq_range:
+    - 300
+    - 8000
+n_tapers: 2
+window_spacing: 200
+window_len: 40
+NW: 1.5
+
+# model parameters
+model: simplecnn3
+batch_size: 32
+predict_batch_size: 256
+steps_per_epoch: 500
+epochs: 25
+amplitude_norm: 100000
+max_samples_per_category: 40000

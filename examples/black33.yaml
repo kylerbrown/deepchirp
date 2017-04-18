@@ -1,0 +1,13 @@
+# target parameters
+encoder:
+    i: 1
+    a: 2
+    b: 3
+    c: 4
+    d: 5
+
+# used only to draw even pools of samples
+# during training, they are classified as silence
+sampling_encoder_extras:
+    - y
+    - z

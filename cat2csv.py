@@ -57,17 +57,14 @@ def third_pass(starts, stops, names, min_syl):
 
 
 
-def main(catname,
+def main(catdata, sampling_rate, decoder,
          outfile,
          min_syl_ms=default_min_syl,
          min_silent_ms=default_min_silent):
     from pandas import DataFrame
     min_syl = min_syl_ms / 1000
     min_silent = min_silent_ms / 1000
-    sampled = bark.read_sampled(catname)
-    sr = sampled.sampling_rate
-    decoder = sampled.attrs['decoder']
-    start, stop, name = first_pass(np.argmax(sampled.data, 1), decoder, 1/sr)
+    start, stop, name = first_pass(np.argmax(catdata, 1), decoder, 1/sampling_rate)
     second_pass(start, stop, name, min_silent)
     third_pass(start, stop, name, min_syl)
     bark.write_events(outfile,
@@ -105,7 +102,10 @@ def _run():
                    type=int,
                    default=default_min_silent)
     args = p.parse_args()
-    main(args.cat, args.out, args.min_syl,
+    sampled = bark.read_sampled(args.cat)
+    sr = sampled.sampling_rate
+    decoder = sampled.attrs['decoder']
+    main(sampled.data, sr, decoder, args.out, args.min_syl,
          args.min_silent)
 
 
