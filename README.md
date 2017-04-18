@@ -1,6 +1,12 @@
 # Deepchirp
 (a zebra finch syllable automatic labeling system)
 
+Deepchirp uses deep learning to automate identification and labelling in zebra finch microphone recordings. It has been designed to be robust to noise artifacts such as conspecific calls and movement artifacts.
+
+Deepchirp uses Keras, a wrapper around TensorFlow, to efficiently train deep learning models on GPUs.
+
+Deepchirp was inspired by [Koumura & Okanoya 2016](http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0159188).
+
 # installation
 
 Requires Python 3+
