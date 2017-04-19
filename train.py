@@ -18,6 +18,7 @@ def main(modelparams, birdparams, modelfilename=None, imagedir=None):
         imagedir = default_image_directory(modelparams, birdparams)
     imagedir = os.path.join(imagedir, 'train')
     m = get_model(p['model'], *model_dims(p))
+    print(m.summary())
     train_from_images(m, imagedir, p)
     if modelfilename is None:
         modelfilename = default_model_filename(modelparams, birdparams)
