@@ -92,6 +92,7 @@ def image_iterator(directory, batch_size, encoder):
     classes = [o for o in os.listdir(directory)
             if os.path.isdir(os.path.join(directory, o))]
     n_classes = len(classes)
+    sample_permute = [np.random.permutation(range(n)) for n in n_samples]
     subdirs = [os.path.join(directory, c) for c in classes]
     counter = [0 for _ in classes]
     n_samples = [sum(1 for _ in iglob(os.path.join(directory, k, '*.npy'))) for k in classes]
@@ -102,7 +103,7 @@ def image_iterator(directory, batch_size, encoder):
         ys = []
         for i in range(batch_size):
             xfile = os.path.join(subdirs[ith_class],
-                    '{:06}.npy'.format(counter[ith_class]))
+                    '{:06}.npy'.format(sample_permute[ith_class][counter[ith_class]]))
             x = np.load(xfile)
             x = np.expand_dims(x, 2)  # keras expects third dimension
             xs.append(x)
