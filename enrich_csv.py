@@ -66,6 +66,9 @@ def remove_noise_samples(df, noise_name):
     n_noise = len(df.name[(df.name == noise_name)])
     noisefreedf = df[df.name != noise_name]
     print(noisefreedf.name.groupby(noisefreedf.name).count())
+    if len(noisefreedf) == 0:
+        print('Warning! No syllables! Returning empty dataframe.')
+        return noisefreedf
     avg_class_count = int(noisefreedf.name.groupby(noisefreedf.name).count(
     ).mean())
     n_drop = n_noise - avg_class_count
@@ -92,7 +95,8 @@ def main(in_csv,
     if boundary_length > 0:
         df = add_boundaries(df, boundary_size=boundary_length,
                 boundary_label=boundary_label)
-    bark.write_events(out_csv, df, **dset.attrs)
+    if len(df) > 0:
+        bark.write_events(out_csv, df, **dset.attrs)
 
 
 if __name__ == '__main__':
