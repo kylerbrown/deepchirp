@@ -9,8 +9,8 @@ from utils import decode, create_spectra, read_files, default_image_directory
 def sampling_encoder(params):
     'add extras to encoder to ensure even sampling'
     encoder = params['encoder'].copy()
-    extras = {x: len(encoder) + 1
-            for x in params['sampling_encoder_extras']}
+    extras = {x: len(encoder) + 1 + ith
+            for ith, x in enumerate(params['sampling_encoder_extras'])}
     encoder.update(extras)
     return encoder
 
