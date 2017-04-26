@@ -42,6 +42,17 @@ def count_image_samples(directory):
     n_samples = [sum(1 for _ in iglob(os.path.join(directory, k, '*.npy'))) for k in classes]
     return sum(n_samples)
 
+def get_classes(directory):
+    '''Returns three lists:
+    classes : a list of the names of each subdirectory
+    subdirs : the names of the subdirectories
+    n_samples : the number of samples in each subdirectory
+    '''
+    classes = [o for o in os.listdir(directory)
+            if os.path.isdir(os.path.join(directory, o))]
+    subdirs = [os.path.join(directory, c) for c in classes]
+    n_samples = [sum(1 for _ in iglob(os.path.join(directory, k, '*.npy'))) for k in classes]
+    return classes, subdirs, n_samples
 
 def test_image_iterator(directory, batch_size, encoder, loop=True):
     ''' Samples sequentially from images in subdirectories
@@ -50,12 +61,9 @@ def test_image_iterator(directory, batch_size, encoder, loop=True):
     If subdirectory name is not in encoder, target is assumed to be
     the first class (0).
     '''
-    classes = [o for o in os.listdir(directory)
-            if os.path.isdir(os.path.join(directory, o))]
+    classes, subdirs, n_samples = get_classes(directory)
     n_classes = len(classes)
-    subdirs = [os.path.join(directory, c) for c in classes]
     counter = [0 for _ in classes]
-    n_samples = [sum(1 for _ in iglob(os.path.join(directory, k, '*.npy'))) for k in classes]
     print('number of test examples', list(zip(classes, n_samples)))
     do_loop = True
     while do_loop:
@@ -89,13 +97,10 @@ def image_iterator(directory, batch_size, encoder):
     If subdirectory name is not in encoder, target is assumed to be
     the first class (0).
     '''
-    classes = [o for o in os.listdir(directory)
-            if os.path.isdir(os.path.join(directory, o))]
+    classes, subdirs, n_samples = get_classes(directory)
     n_classes = len(classes)
-    sample_permute = [np.random.permutation(range(n)) for n in n_samples]
-    subdirs = [os.path.join(directory, c) for c in classes]
     counter = [0 for _ in classes]
-    n_samples = [sum(1 for _ in iglob(os.path.join(directory, k, '*.npy'))) for k in classes]
+    sample_permute = [np.random.permutation(range(n)) for n in n_samples]
     print('number of training examples', list(zip(classes, n_samples)))
     ith_class = 0
     while True:

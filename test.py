@@ -1,3 +1,5 @@
+import tensorflow as tf
+from keras.backend.tensorflow_backend import set_session
 from preprocess import all_targets_from_events, data_generator, test_image_iterator
 from utils import read_files, create_spectra, default_model_filename, save, default_image_directory
 import os.path
@@ -5,6 +7,10 @@ import keras
 import numpy as np
 from sklearn.metrics import accuracy_score, classification_report
 import yaml
+
+config = tf.ConfigProto()
+config.gpu_options.per_process_gpu_memory_fraction = 0.3
+set_session(tf.Session(config=config))
 
 def test_images(model, image_dir, p):
     image_gen = test_image_iterator(image_dir, p['batch_size'], encoder=p['encoder'],
