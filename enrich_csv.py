@@ -74,6 +74,7 @@ def remove_noise_samples(df, noise_name):
     n_drop = n_noise - avg_class_count
     if n_drop < 0:
         return df
+    df.reset_index(drop=True, inplace=True)
     noise_locs = np.array(df.index[df.names == noise_name])
     np.random.shuffle(noise_locs)
     drop_noise_ix = noise_locs[:n_drop]
@@ -95,8 +96,7 @@ def main(in_csv,
     if boundary_length > 0:
         df = add_boundaries(df, boundary_size=boundary_length,
                 boundary_label=boundary_label)
-    if len(df) > 0:
-        bark.write_events(out_csv, df, **dset.attrs)
+    bark.write_events(out_csv, df, **dset.attrs)
 
 
 if __name__ == '__main__':

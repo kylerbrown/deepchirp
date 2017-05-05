@@ -8,7 +8,7 @@ import os.path
 import yaml
 
 config = tf.ConfigProto()
-config.gpu_options.per_process_gpu_memory_fraction = 0.3
+config.gpu_options.per_process_gpu_memory_fraction = 0.5
 set_session(tf.Session(config=config))
 
 def predict(model, sampled_dset, spa, p):

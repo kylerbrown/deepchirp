@@ -1,5 +1,6 @@
 import tensorflow as tf
 from keras.backend.tensorflow_backend import set_session
+from keras.callbacks import TensorBoard, ModelCheckpoint
 from model import get_model
 from utils import model_dims, default_model_filename, default_image_directory
 from preprocess import test_image_iterator, image_iterator, get_classes
@@ -11,7 +12,7 @@ config.gpu_options.per_process_gpu_memory_fraction = 0.3
 set_session(tf.Session(config=config))
 
 
-def train_from_images(model, image_dir, params):
+def train_from_images(model, image_dir, params, modelfilename):
     ''' trains network on prebuilt image dataset'''
     im_gen = image_iterator(os.path.join(image_dir, 'train'), params['batch_size'], params['encoder'])
     val_dir = os.path.join(image_dir, 'test')
@@ -20,7 +21,8 @@ def train_from_images(model, image_dir, params):
             params['encoder'], loop=True)
     
     model.fit_generator(im_gen, params['steps_per_epoch'], epochs=params['epochs'], verbose=1,
-            validation_data=val_gen, validation_steps=val_steps)
+            validation_data=val_gen, validation_steps=val_steps, 
+            callbacks=([ModelCheckpoint(modelfilename, save_best_only=True), TensorBoard()]))
 
 
 def main(modelparams, birdparams, modelfilename=None, imagedir=None):
@@ -30,10 +32,9 @@ def main(modelparams, birdparams, modelfilename=None, imagedir=None):
         imagedir = default_image_directory(modelparams, birdparams)
     m = get_model(p['model'], *model_dims(p))
     print(m.summary())
-    train_from_images(m, imagedir, p)
     if modelfilename is None:
         modelfilename = default_model_filename(modelparams, birdparams)
-    m.save(modelfilename)
+    train_from_images(m, imagedir, p, modelfilename)
 
 
 if __name__ == '__main__':

@@ -5,7 +5,7 @@ from keras.layers.wrappers import TimeDistributed, Bidirectional
 from keras.layers.core import Dropout
 from keras.layers.normalization import BatchNormalization
 
-def dummy_model(n_timesteps, n_freqs, n_cats):
+def dummy(n_timesteps, n_freqs, n_cats):
     model = Sequential()
     model.add(Conv2D(1,
                      kernel_size=(1, 1),
